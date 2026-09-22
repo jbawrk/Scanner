@@ -1,0 +1,1832 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Stockman Productivity</title>
+
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --success: #15803d;
+      --warning: #b45309;
+      --danger: #b91c1c;
+      --border: #e5e7eb;
+      --muted: #6b7280;
+      --surface: #ffffff;
+      --background: #f3f4f6;
+      --text: #111827;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--background);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 14px;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    .app {
+      width: min(1400px, 100%);
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+    }
+
+    .header p {
+      margin: 4px 0 0;
+      color: var(--muted);
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      overflow-x: auto;
+    }
+
+    .tab {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 16px;
+      background: white;
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    .tab.active {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+
+    .panel {
+      display: none;
+    }
+
+    .panel.active {
+      display: block;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+    }
+
+    .card h2,
+    .card h3 {
+      margin-top: 0;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .field {
+      min-width: 0;
+    }
+
+    .field label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+
+    input,
+    select {
+      width: 100%;
+      min-height: 42px;
+      padding: 10px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      background: white;
+      color: var(--text);
+    }
+
+    input:focus,
+    select:focus {
+      outline: 2px solid rgba(37, 99, 235, 0.25);
+      border-color: var(--primary);
+    }
+
+    .scan-input-row {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+    }
+
+    .scan-input-row input {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .scan-button {
+      flex: 0 0 auto;
+      white-space: nowrap;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .btn {
+      min-height: 40px;
+      padding: 9px 14px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      font-weight: 700;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-dark);
+    }
+
+    .btn-secondary {
+      background: white;
+      color: var(--text);
+      border-color: #d1d5db;
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: white;
+    }
+
+    .btn-danger {
+      background: var(--danger);
+      color: white;
+    }
+
+    .tasks {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .task-card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      background: white;
+    }
+
+    .task-card h3 {
+      margin-bottom: 12px;
+      font-size: 17px;
+    }
+
+    .timer {
+      margin: 12px 0;
+      font-size: 30px;
+      font-weight: 700;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .task-status {
+      margin-bottom: 14px;
+      text-align: center;
+      color: var(--muted);
+      text-transform: capitalize;
+    }
+
+    .task-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .summary-card {
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: white;
+    }
+
+    .summary-label {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .summary-value {
+      margin-top: 6px;
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      min-width: 900px;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      padding: 10px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    th {
+      background: #f9fafb;
+      font-size: 12px;
+    }
+
+    .filters {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .message {
+      display: none;
+      margin-bottom: 16px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      background: #dbeafe;
+      color: #1e40af;
+    }
+
+    .message.active {
+      display: block;
+    }
+
+    .empty {
+      padding: 24px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .scanner-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      background: rgba(0, 0, 0, 0.72);
+    }
+
+    .scanner-modal.active {
+      display: flex;
+    }
+
+    .scanner-container {
+      width: min(100%, 480px);
+      max-height: 95vh;
+      overflow-y: auto;
+      padding: 20px;
+      border-radius: 16px;
+      background: white;
+    }
+
+    .scanner-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .scanner-header h2 {
+      margin: 0;
+      font-size: 20px;
+    }
+
+    .scanner-close {
+      border: 0;
+      background: transparent;
+      font-size: 30px;
+      line-height: 1;
+    }
+
+    #barcode-reader {
+      width: 100%;
+      overflow: hidden;
+      border-radius: 12px;
+    }
+
+    .scanner-instruction {
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .scanner-diagnostics {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #f9fafb;
+      font-size: 12px;
+      line-height: 1.6;
+      text-align: left;
+    }
+
+    .scanner-diagnostics strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: var(--muted);
+    }
+
+    .diag-warn {
+      color: var(--danger);
+      font-weight: 700;
+    }
+
+    .diag-ok {
+      color: var(--success);
+      font-weight: 700;
+    }
+
+    .loading {
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    @media (max-width: 1000px) {
+      .tasks {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 650px) {
+      .app {
+        padding: 10px;
+      }
+
+      .header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .form-grid,
+      .filters,
+      .tasks,
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .card {
+        padding: 14px;
+      }
+
+      .timer {
+        font-size: 27px;
+      }
+
+      .scan-input-row {
+        gap: 5px;
+      }
+
+      .scan-button {
+        padding: 9px 10px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+
+    <header class="header">
+      <div>
+        <h1>Stockman Productivity</h1>
+        <p>Task tracking and productivity dashboard</p>
+      </div>
+
+      <button class="btn btn-secondary" onclick="setupWorkbook()">
+        Setup Workbook
+      </button>
+    </header>
+
+    <div id="message" class="message"></div>
+
+    <nav class="tabs">
+      <button class="tab active" data-tab="work" onclick="switchTab('work')">
+        Work
+      </button>
+
+      <button class="tab" data-tab="dashboard" onclick="switchTab('dashboard')">
+        Dashboard
+      </button>
+
+      <button class="tab" data-tab="records" onclick="switchTab('records')">
+        Records
+      </button>
+    </nav>
+
+    <!-- WORK PANEL -->
+    <section id="work-panel" class="panel active">
+
+      <div class="card">
+        <h2>Work Context</h2>
+
+        <div class="form-grid">
+
+          <div class="field">
+            <label for="operator">Number of Stockmen</label>
+
+            <select id="operator" required>
+              <option value="">Select number of stockmen</option>
+              <option value="1 Operator">1 Operator</option>
+              <option value="2 Operators">2 Operators</option>
+              <option value="3 Operators">3 Operators</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="workDate">Date</label>
+            <input id="workDate" type="date" required>
+          </div>
+
+          <div class="field">
+            <label for="sku">SKU</label>
+
+            <div class="scan-input-row">
+              <input
+                id="sku"
+                type="text"
+                placeholder="Scan or enter SKU"
+                autocomplete="off"
+                required
+              >
+
+              <button
+                type="button"
+                class="btn btn-primary scan-button"
+                onclick="openScanner('sku')"
+              >
+                Scan
+              </button>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="skuCount">SKU Count</label>
+
+            <input
+              id="skuCount"
+              type="number"
+              min="1"
+              step="1"
+              inputmode="numeric"
+              placeholder="Enter SKU count"
+              required
+            >
+          </div>
+
+          <div class="field">
+            <label for="palletLocation">Pallet Location</label>
+
+            <div class="scan-input-row">
+              <input
+                id="palletLocation"
+                type="text"
+                placeholder="Scan or enter location"
+                autocomplete="off"
+                required
+              >
+
+              <button
+                type="button"
+                class="btn btn-primary scan-button"
+                onclick="openScanner('palletLocation')"
+              >
+                Scan
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="button-row">
+          <button class="btn btn-secondary" onclick="clearContext()">
+            Clear Context
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Task Timers</h2>
+
+        <p class="loading">
+          Only one task can run at a time. Starting or resuming another task
+          automatically pauses the current task.
+        </p>
+
+        <div id="tasks-container" class="tasks">
+          <div class="loading">Loading task types...</div>
+        </div>
+
+        <div class="button-row">
+          <button class="btn btn-secondary" onclick="resetAllTasks()">
+            Reset Timers
+          </button>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- DASHBOARD PANEL -->
+    <section id="dashboard-panel" class="panel">
+
+      <div class="card">
+        <h2>Dashboard Filters</h2>
+
+        <div class="filters">
+          <div class="field">
+            <label for="dashboardDate">Date</label>
+            <input id="dashboardDate" type="date">
+          </div>
+
+          <div class="field">
+            <label for="dashboardOperator">Operator</label>
+            <select id="dashboardOperator">
+              <option value="">All Operators</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="dashboardTaskType">Task Type</label>
+            <select id="dashboardTaskType">
+              <option value="">All Task Types</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="button-row">
+          <button class="btn btn-primary" onclick="loadDashboard()">
+            Refresh Dashboard
+          </button>
+
+          <button class="btn btn-secondary" onclick="exportCsv()">
+            Export CSV
+          </button>
+        </div>
+      </div>
+
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="summary-label">Completed Tasks</div>
+          <div id="summary-task-count" class="summary-value">0</div>
+        </div>
+
+        <div class="summary-card">
+          <div class="summary-label">Total SKU Count</div>
+          <div id="summary-sku-count" class="summary-value">0</div>
+        </div>
+
+        <div class="summary-card">
+          <div class="summary-label">Active Time</div>
+          <div id="summary-active" class="summary-value">00:00:00</div>
+        </div>
+
+        <div class="summary-card">
+          <div class="summary-label">Elapsed Time</div>
+          <div id="summary-elapsed" class="summary-value">00:00:00</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Task Summary</h2>
+        <div id="task-summary" class="table-wrap"></div>
+      </div>
+
+      <div class="card">
+        <h2>Operator Summary</h2>
+        <div id="operator-summary" class="table-wrap"></div>
+      </div>
+
+    </section>
+
+    <!-- RECORDS PANEL -->
+    <section id="records-panel" class="panel">
+
+      <div class="card">
+        <h2>Completed Records</h2>
+
+        <div class="button-row">
+          <button class="btn btn-primary" onclick="loadRecords()">
+            Refresh Records
+          </button>
+
+          <button class="btn btn-secondary" onclick="exportCsv()">
+            Export CSV
+          </button>
+        </div>
+
+        <div id="records-table" class="table-wrap">
+          <div class="loading">Loading records...</div>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <!-- SCANNER MODAL -->
+  <div id="scanner-modal" class="scanner-modal">
+    <div class="scanner-container">
+
+      <div class="scanner-header">
+        <h2 id="scanner-title">Scan</h2>
+
+        <button
+          type="button"
+          class="scanner-close"
+          onclick="closeScanner()"
+          aria-label="Close scanner"
+        >
+          ×
+        </button>
+      </div>
+
+      <div id="barcode-reader"></div>
+
+      <p id="scanner-instruction" class="scanner-instruction">
+        Point the camera at the QR code or barcode.
+      </p>
+
+      <div id="camera-diagnostics" class="scanner-diagnostics"></div>
+
+      <button
+        type="button"
+        class="btn btn-secondary"
+        onclick="closeScanner()"
+        style="margin-top:12px;width:100%;"
+      >
+        Cancel
+      </button>
+
+    </div>
+  </div>
+
+  <script>
+    let TASK_TYPES = [];
+    let tasks = {};
+    let activeTaskType = null;
+    let timerInterval = null;
+
+    let scannerInstance = null;
+    let scannerRunning = false;
+    let scannerStarting = false;
+    let scannerTarget = null;
+    let scannerLocked = false;
+
+    document.addEventListener('DOMContentLoaded', function() {
+      const today = new Date().toISOString().slice(0, 10);
+
+      document.getElementById('workDate').value = today;
+      document.getElementById('dashboardDate').value = today;
+
+      loadAppConfig();
+    });
+
+    function loadAppConfig() {
+      google.script.run
+        .withSuccessHandler(function(response) {
+          if (!response || !response.success) {
+            showMessage('Unable to load application settings.');
+            return;
+          }
+
+          TASK_TYPES = response.taskTypes || [
+            'Compression',
+            'RT',
+            'Free-Up'
+          ];
+
+          renderTaskCards();
+          populateTaskFilters();
+          loadDashboard();
+          loadRecords();
+        })
+        .withFailureHandler(function(error) {
+          console.error(error);
+          showMessage('Unable to load application settings.');
+        })
+        .getAppConfig();
+    }
+
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab').forEach(function(tab) {
+        tab.classList.toggle(
+          'active',
+          tab.dataset.tab === tabName
+        );
+      });
+
+      document.querySelectorAll('.panel').forEach(function(panel) {
+        panel.classList.remove('active');
+      });
+
+      const panel = document.getElementById(tabName + '-panel');
+
+      if (panel) {
+        panel.classList.add('active');
+      }
+
+      if (tabName === 'dashboard') {
+        loadDashboard();
+      }
+
+      if (tabName === 'records') {
+        loadRecords();
+      }
+    }
+
+    function createTaskState(type) {
+      return {
+        type: type,
+        status: 'idle',
+        startTime: null,
+        endTime: null,
+        lastStartedAt: null,
+        activeSeconds: 0,
+        pauseSeconds: 0,
+        pausedAt: null,
+        completed: false
+      };
+    }
+
+    function getTask(type) {
+      if (!tasks[type]) {
+        tasks[type] = createTaskState(type);
+      }
+
+      return tasks[type];
+    }
+
+    function renderTaskCards() {
+      const container = document.getElementById('tasks-container');
+
+      container.innerHTML = '';
+
+      TASK_TYPES.forEach(function(type) {
+        const id = normalizeTaskId(type);
+
+        getTask(type);
+
+        const card = document.createElement('div');
+        card.className = 'task-card';
+
+        card.innerHTML = `
+          <h3>${escapeHtml(type)}</h3>
+
+          <div id="timer-${id}" class="timer">
+            00:00:00
+          </div>
+
+          <div id="status-${id}" class="task-status">
+            idle
+          </div>
+
+          <div class="task-buttons">
+            <button
+              id="action-${id}"
+              class="btn btn-primary"
+              onclick="toggleTask('${escapeJs(type)}')"
+            >
+              Start
+            </button>
+
+            <button
+              class="btn btn-success"
+              onclick="endTask('${escapeJs(type)}')"
+            >
+              End
+            </button>
+          </div>
+        `;
+
+        container.appendChild(card);
+        updateTaskUi(type);
+      });
+    }
+
+    function startTask(type) {
+      if (!validateContext(getWorkContext())) {
+        return;
+      }
+
+      const task = getTask(type);
+
+      if (task.status === 'completed') {
+        return;
+      }
+
+      pauseOtherRunningTasks(type);
+
+      const now = Date.now();
+
+      task.status = 'running';
+
+      if (!task.startTime) {
+        task.startTime = now;
+      }
+
+      task.lastStartedAt = now;
+      task.pausedAt = null;
+
+      activeTaskType = type;
+
+      updateAllTaskUi();
+      startUiTimer();
+    }
+
+    function pauseOtherRunningTasks(excludedType) {
+      TASK_TYPES.forEach(function(type) {
+        if (type === excludedType) {
+          return;
+        }
+
+        const task = getTask(type);
+
+        if (task.status === 'running') {
+          pauseTask(type, true);
+        }
+      });
+    }
+
+    function pauseTask(type, automaticPause) {
+      const task = getTask(type);
+
+      if (task.status !== 'running') {
+        return;
+      }
+
+      const now = Date.now();
+
+      if (task.lastStartedAt) {
+        task.activeSeconds += Math.max(
+          0,
+          Math.floor((now - task.lastStartedAt) / 1000)
+        );
+      }
+
+      task.status = 'paused';
+      task.pausedAt = now;
+      task.lastStartedAt = null;
+
+      if (activeTaskType === type) {
+        activeTaskType = null;
+      }
+
+      updateAllTaskUi();
+      stopUiTimerIfNoTaskRunning();
+
+      if (!automaticPause) {
+        showMessage(type + ' paused.');
+      }
+    }
+
+    function resumeTask(type) {
+      const task = getTask(type);
+
+      if (task.status !== 'paused') {
+        return;
+      }
+
+      if (!validateContext(getWorkContext())) {
+        return;
+      }
+
+      pauseOtherRunningTasks(type);
+
+      const now = Date.now();
+
+      if (task.pausedAt) {
+        task.pauseSeconds += Math.max(
+          0,
+          Math.floor((now - task.pausedAt) / 1000)
+        );
+      }
+
+      task.status = 'running';
+      task.lastStartedAt = now;
+      task.pausedAt = null;
+
+      activeTaskType = type;
+
+      updateAllTaskUi();
+      startUiTimer();
+    }
+
+    function toggleTask(type) {
+      const task = getTask(type);
+
+      if (task.status === 'idle') {
+        startTask(type);
+      } else if (task.status === 'running') {
+        pauseTask(type, false);
+      } else if (task.status === 'paused') {
+        resumeTask(type);
+      }
+    }
+
+    function endTask(type) {
+      const task = getTask(type);
+
+      if (
+        task.status === 'idle' ||
+        task.status === 'completed'
+      ) {
+        return;
+      }
+
+      const now = Date.now();
+
+      if (task.status === 'running' && task.lastStartedAt) {
+        task.activeSeconds += Math.max(
+          0,
+          Math.floor((now - task.lastStartedAt) / 1000)
+        );
+      }
+
+      if (task.status === 'paused' && task.pausedAt) {
+        task.pauseSeconds += Math.max(
+          0,
+          Math.floor((now - task.pausedAt) / 1000)
+        );
+      }
+
+      task.endTime = now;
+      task.status = 'completed';
+      task.completed = true;
+      task.lastStartedAt = null;
+      task.pausedAt = null;
+
+      if (activeTaskType === type) {
+        activeTaskType = null;
+      }
+
+      updateAllTaskUi();
+      stopUiTimerIfNoTaskRunning();
+
+      saveCompletedTask(task);
+    }
+
+    function saveCompletedTask(task) {
+      const context = getWorkContext();
+
+      if (!validateContext(context)) {
+        return;
+      }
+
+      const totalSeconds = task.endTime && task.startTime
+        ? Math.max(
+            0,
+            Math.floor((task.endTime - task.startTime) / 1000)
+          )
+        : task.activeSeconds + task.pauseSeconds;
+
+      const record = {
+        workDate: context.workDate,
+        operator: context.operator,
+        sku: context.sku,
+        skuCount: context.skuCount,
+        palletLocation: context.palletLocation,
+        taskType: task.type,
+        startTime: new Date(task.startTime).toISOString(),
+        endTime: new Date(task.endTime).toISOString(),
+        activeDurationSeconds: task.activeSeconds,
+        pauseDurationSeconds: task.pauseSeconds,
+        totalElapsedSeconds: totalSeconds,
+        status: 'Completed'
+      };
+
+      google.script.run
+        .withSuccessHandler(function(response) {
+          if (response && response.success) {
+            showMessage(task.type + ' saved successfully.');
+            loadDashboard();
+            loadRecords();
+          } else {
+            showMessage(
+              response && response.message
+                ? response.message
+                : 'Unable to save task.'
+            );
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error('Save task error:', error);
+          showMessage(
+            error && error.message
+              ? error.message
+              : 'Error saving task.'
+          );
+        })
+        .saveTapTask(record);
+    }
+
+    function getWorkContext() {
+      return {
+        operator: document.getElementById('operator').value.trim(),
+        workDate: document.getElementById('workDate').value,
+        sku: document.getElementById('sku').value.trim(),
+        skuCount: Number(document.getElementById('skuCount').value),
+        palletLocation: document
+          .getElementById('palletLocation')
+          .value.trim()
+      };
+    }
+
+    function validateContext(context) {
+      if (!context.operator) {
+        showMessage('Select the number of stockmen.');
+        return false;
+      }
+
+      if (!context.workDate) {
+        showMessage('Select a work date.');
+        return false;
+      }
+
+      if (!context.sku) {
+        showMessage('Enter or scan the SKU.');
+        return false;
+      }
+
+      if (
+        !Number.isInteger(context.skuCount) ||
+        context.skuCount < 1
+      ) {
+        showMessage('Enter a valid SKU Count greater than zero.');
+        return false;
+      }
+
+      if (!context.palletLocation) {
+        showMessage('Enter or scan the pallet location.');
+        return false;
+      }
+
+      return true;
+    }
+
+    function updateAllTaskUi() {
+      TASK_TYPES.forEach(function(type) {
+        updateTaskUi(type);
+      });
+    }
+
+    function updateTaskUi(type) {
+      const task = getTask(type);
+      const id = normalizeTaskId(type);
+
+      const statusElement = document.getElementById('status-' + id);
+      const timerElement = document.getElementById('timer-' + id);
+      const actionButton = document.getElementById('action-' + id);
+
+      if (statusElement) {
+        statusElement.textContent = task.status;
+      }
+
+      if (timerElement) {
+        timerElement.textContent = formatTaskSeconds(task);
+      }
+
+      if (actionButton) {
+        actionButton.disabled = task.status === 'completed';
+
+        if (task.status === 'idle') {
+          actionButton.textContent = 'Start';
+        } else if (task.status === 'running') {
+          actionButton.textContent = 'Pause';
+        } else if (task.status === 'paused') {
+          actionButton.textContent = 'Resume';
+        } else {
+          actionButton.textContent = 'Completed';
+        }
+      }
+    }
+
+    function formatTaskSeconds(task) {
+      let seconds = task.activeSeconds || 0;
+
+      if (task.status === 'running' && task.lastStartedAt) {
+        seconds += Math.floor(
+          (Date.now() - task.lastStartedAt) / 1000
+        );
+      }
+
+      return secondsToText(seconds);
+    }
+
+    function secondsToText(seconds) {
+      seconds = Math.max(0, Math.round(Number(seconds || 0)));
+
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      const remaining = seconds % 60;
+
+      return [
+        String(hours).padStart(2, '0'),
+        String(minutes).padStart(2, '0'),
+        String(remaining).padStart(2, '0')
+      ].join(':');
+    }
+
+    function startUiTimer() {
+      if (timerInterval) {
+        return;
+      }
+
+      timerInterval = setInterval(function() {
+        updateAllTaskUi();
+      }, 1000);
+    }
+
+    function stopUiTimerIfNoTaskRunning() {
+      const hasRunningTask = TASK_TYPES.some(function(type) {
+        return getTask(type).status === 'running';
+      });
+
+      if (!hasRunningTask && timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+    }
+
+    function resetAllTasks() {
+      const hasActivity = TASK_TYPES.some(function(type) {
+        return getTask(type).status !== 'idle';
+      });
+
+      if (
+        hasActivity &&
+        !confirm('Reset all task timers? Unsaved task activity will be lost.')
+      ) {
+        return;
+      }
+
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+
+      tasks = {};
+      activeTaskType = null;
+
+      TASK_TYPES.forEach(function(type) {
+        tasks[type] = createTaskState(type);
+      });
+
+      updateAllTaskUi();
+      showMessage('Timers reset.');
+    }
+
+    function clearContext() {
+      document.getElementById('operator').value = '';
+      document.getElementById('sku').value = '';
+      document.getElementById('skuCount').value = '';
+      document.getElementById('palletLocation').value = '';
+
+      showMessage('Work context cleared.');
+    }
+
+    function loadDashboard() {
+      const filters = {
+        workDate: document.getElementById('dashboardDate').value,
+        operator: document.getElementById('dashboardOperator').value,
+        taskType: document.getElementById('dashboardTaskType').value
+      };
+
+      google.script.run
+        .withSuccessHandler(renderDashboard)
+        .withFailureHandler(function(error) {
+          console.error(error);
+          showMessage('Unable to load dashboard.');
+        })
+        .getDashboardData(filters);
+    }
+
+    function renderDashboard(response) {
+      if (!response || !response.success) {
+        return;
+      }
+
+      document.getElementById('summary-task-count').textContent =
+        response.summary.taskCount || 0;
+
+      document.getElementById('summary-sku-count').textContent =
+        response.summary.totalSkuCount || 0;
+
+      document.getElementById('summary-active').textContent =
+        secondsToText(response.summary.totalActiveSeconds);
+
+      document.getElementById('summary-elapsed').textContent =
+        secondsToText(response.summary.totalElapsedSeconds);
+
+      renderSummaryTable(
+        'task-summary',
+        response.taskSummary,
+        'Task Type'
+      );
+
+      renderSummaryTable(
+        'operator-summary',
+        response.operatorSummary,
+        'Operator'
+      );
+    }
+
+    function renderSummaryTable(elementId, rows, firstColumnName) {
+      const container = document.getElementById(elementId);
+
+      if (!rows || !rows.length) {
+        container.innerHTML = '<div class="empty">No data found.</div>';
+        return;
+      }
+
+      let html = `
+        <table>
+          <thead>
+            <tr>
+              <th>${escapeHtml(firstColumnName)}</th>
+              <th>Tasks</th>
+              <th>SKU Count</th>
+              <th>Active Time</th>
+              <th>Pause Time</th>
+              <th>Elapsed Time</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      rows.forEach(function(row) {
+        html += `
+          <tr>
+            <td>${escapeHtml(row.name)}</td>
+            <td>${row.taskCount}</td>
+            <td>${row.skuCount}</td>
+            <td>${secondsToText(row.activeSeconds)}</td>
+            <td>${secondsToText(row.pauseSeconds)}</td>
+            <td>${secondsToText(row.elapsedSeconds)}</td>
+          </tr>
+        `;
+      });
+
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    function loadRecords() {
+      const filters = {
+        workDate: document.getElementById('dashboardDate').value,
+        operator: document.getElementById('dashboardOperator').value,
+        taskType: document.getElementById('dashboardTaskType').value
+      };
+
+      google.script.run
+        .withSuccessHandler(function(response) {
+          if (response && response.success) {
+            renderRecords(response.records);
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error(error);
+          showMessage('Unable to load records.');
+        })
+        .getDashboardData(filters);
+    }
+
+    function renderRecords(records) {
+      const container = document.getElementById('records-table');
+
+      if (!records || !records.length) {
+        container.innerHTML = '<div class="empty">No records found.</div>';
+        return;
+      }
+
+      let html = `
+        <table>
+          <thead>
+            <tr>
+              <th>Created At</th>
+              <th>Work Date</th>
+              <th>Operator</th>
+              <th>SKU</th>
+              <th>SKU Count</th>
+              <th>Pallet Location</th>
+              <th>Task Type</th>
+              <th>Start Time</th>
+              <th>End Time</th>
+              <th>Active Duration</th>
+              <th>Pause Duration</th>
+              <th>Total Elapsed</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      records.forEach(function(record) {
+        html += `
+          <tr>
+            <td>${escapeHtml(record.createdAt)}</td>
+            <td>${escapeHtml(record.workDate)}</td>
+            <td>${escapeHtml(record.operator)}</td>
+            <td>${escapeHtml(record.sku)}</td>
+            <td>${record.skuCount}</td>
+            <td>${escapeHtml(record.palletLocation)}</td>
+            <td>${escapeHtml(record.taskType)}</td>
+            <td>${escapeHtml(record.startTime)}</td>
+            <td>${escapeHtml(record.endTime)}</td>
+            <td>${secondsToText(record.activeDurationSeconds)}</td>
+            <td>${secondsToText(record.pauseDurationSeconds)}</td>
+            <td>${secondsToText(record.totalElapsedSeconds)}</td>
+            <td>${escapeHtml(record.status)}</td>
+          </tr>
+        `;
+      });
+
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    function populateTaskFilters() {
+      const select = document.getElementById('dashboardTaskType');
+
+      select.innerHTML = '<option value="">All Task Types</option>';
+
+      TASK_TYPES.forEach(function(type) {
+        const option = document.createElement('option');
+        option.value = type;
+        option.textContent = type;
+        select.appendChild(option);
+      });
+    }
+
+    function setupWorkbook() {
+      google.script.run
+        .withSuccessHandler(function(response) {
+          showMessage(
+            response && response.message
+              ? response.message
+              : 'Workbook setup completed.'
+          );
+        })
+        .withFailureHandler(function(error) {
+          console.error(error);
+          showMessage('Workbook setup failed.');
+        })
+        .setupWorkbook();
+    }
+
+    function exportCsv() {
+      const filters = {
+        workDate: document.getElementById('dashboardDate').value,
+        operator: document.getElementById('dashboardOperator').value,
+        taskType: document.getElementById('dashboardTaskType').value
+      };
+
+      google.script.run
+        .withSuccessHandler(function(csv) {
+          const blob = new Blob([csv], {
+            type: 'text/csv;charset=utf-8;'
+          });
+
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+
+          link.href = url;
+          link.download = 'stockman-productivity.csv';
+          link.click();
+
+          URL.revokeObjectURL(url);
+        })
+        .withFailureHandler(function(error) {
+          console.error(error);
+          showMessage('CSV export failed.');
+        })
+        .exportRecordsCsv(filters);
+    }
+
+    // --- Scanner + camera diagnostics -------------------------------
+
+    function openScanner(targetField) {
+      if (!['sku', 'palletLocation'].includes(targetField)) {
+        showMessage('Invalid scanner field.');
+        return;
+      }
+
+      scannerTarget = targetField;
+      scannerLocked = false;
+
+      document.getElementById('scanner-title').textContent =
+        targetField === 'sku'
+          ? 'Scan SKU'
+          : 'Scan Pallet Location';
+
+      resetScannerInstruction();
+      renderCameraDiagnostics();
+
+      document.getElementById('scanner-modal')
+        .classList.add('active');
+
+      startScanner();
+    }
+
+    function resetScannerInstruction() {
+      const el = document.getElementById('scanner-instruction');
+
+      if (el) {
+        el.textContent = 'Point the camera at the QR code or barcode.';
+        el.classList.remove('diag-warn');
+      }
+    }
+
+    function showScannerError(message) {
+      const el = document.getElementById('scanner-instruction');
+
+      if (el) {
+        el.textContent = message;
+        el.classList.add('diag-warn');
+      }
+    }
+
+    // Renders a live readout of the four things that most commonly
+    // block camera access in an Apps Script Web App, so the cause is
+    // visible on the page itself instead of requiring devtools:
+    // 1) is this the deployed /exec URL, not the editor preview
+    // 2) is the page loaded over https (getUserMedia requires it)
+    // 3) is the page embedded inside another iframe (Sites, Drive, etc.)
+    // 4) what the browser currently reports for camera permission
+    async function renderCameraDiagnostics() {
+      const el = document.getElementById('camera-diagnostics');
+
+      if (!el) {
+        return;
+      }
+
+      const url = window.location.href;
+      const isExecUrl = /\/exec(\?|$)/.test(url);
+      const isSecure = window.isSecureContext;
+
+      let isEmbedded = false;
+      try {
+        isEmbedded = window.self !== window.top;
+      } catch (e) {
+        // Cross-origin parent frame throws on access — treat as embedded.
+        isEmbedded = true;
+      }
+
+      let permissionState = 'Not reported by this browser';
+      let permissionKnown = null;
+
+      if (navigator.permissions && navigator.permissions.query) {
+        try {
+          const result = await navigator.permissions.query({ name: 'camera' });
+          permissionState = result.state; // 'granted' | 'denied' | 'prompt'
+          permissionKnown = result.state;
+        } catch (error) {
+          permissionState = 'Unable to query (browser does not support it)';
+        }
+      }
+
+      const row = function(label, value, ok) {
+        const cls = ok === true ? 'diag-ok' : ok === false ? 'diag-warn' : '';
+        return '<div><strong style="display:inline;text-transform:none;letter-spacing:0;font-weight:700;">'
+          + escapeHtml(label) + ':</strong> '
+          + '<span class="' + cls + '">' + escapeHtml(String(value)) + '</span></div>';
+      };
+
+      el.innerHTML =
+        '<strong>Camera diagnostics</strong>' +
+        row('Page URL', url) +
+        row(
+          'Deployed /exec URL',
+          isExecUrl ? 'Yes' : 'No — open Deploy \u2192 Manage deployments \u2192 Web app URL directly, not the editor preview',
+          isExecUrl
+        ) +
+        row(
+          'Secure context (https)',
+          isSecure ? 'Yes' : 'No — camera access requires https',
+          isSecure
+        ) +
+        row(
+          'Embedded in another page/iframe',
+          isEmbedded ? 'Yes — this can silently block camera access' : 'No',
+          !isEmbedded
+        ) +
+        row(
+          'Browser camera permission',
+          permissionState,
+          permissionKnown === 'granted'
+            ? true
+            : permissionKnown === 'denied'
+              ? false
+              : null
+        );
+    }
+
+    function startScanner() {
+      if (scannerRunning || scannerStarting) {
+        return;
+      }
+
+      if (typeof Html5Qrcode === 'undefined') {
+        showMessage('Scanner library is unavailable.');
+        showScannerError('Scanner library is unavailable.');
+        renderCameraDiagnostics();
+        return;
+      }
+
+      scannerStarting = true;
+
+      const supportedFormats =
+        typeof Html5QrcodeSupportedFormats !== 'undefined'
+          ? [
+              Html5QrcodeSupportedFormats.QR_CODE,
+              Html5QrcodeSupportedFormats.AZTEC,
+              Html5QrcodeSupportedFormats.CODABAR,
+              Html5QrcodeSupportedFormats.CODE_39,
+              Html5QrcodeSupportedFormats.CODE_93,
+              Html5QrcodeSupportedFormats.CODE_128,
+              Html5QrcodeSupportedFormats.DATA_MATRIX,
+              Html5QrcodeSupportedFormats.ITF,
+              Html5QrcodeSupportedFormats.EAN_13,
+              Html5QrcodeSupportedFormats.EAN_8,
+              Html5QrcodeSupportedFormats.PDF_417,
+              Html5QrcodeSupportedFormats.UPC_A,
+              Html5QrcodeSupportedFormats.UPC_E
+            ]
+          : undefined;
+
+      document.getElementById('barcode-reader').innerHTML = '';
+
+      scannerInstance = new Html5Qrcode('barcode-reader', {
+        formatsToSupport: supportedFormats,
+        verbose: false
+      });
+
+      const config = {
+        fps: 10,
+        aspectRatio: 1.0,
+        rememberLastUsedCamera: true,
+        showTorchButtonIfSupported: true,
+        qrbox: function(width, height) {
+          const size = Math.floor(
+            Math.min(width, height) * 0.7
+          );
+
+          return {
+            width: Math.max(180, Math.min(size, 300)),
+            height: Math.max(180, Math.min(size, 300))
+          };
+        }
+      };
+
+      scannerInstance
+        .start(
+          { facingMode: 'environment' },
+          config,
+          handleScanSuccess,
+          handleScanError
+        )
+        .then(function() {
+          scannerRunning = true;
+          scannerStarting = false;
+        })
+        .catch(function(error) {
+          console.error('Scanner start error:', error);
+
+          scannerStarting = false;
+          scannerRunning = false;
+
+          const message = getCameraErrorMessage(error);
+
+          showMessage(message);
+          showScannerError(message);
+
+          // Keep the modal open (don't call closeScanner()) so the
+          // error and the diagnostics above stay visible instead of
+          // disappearing before they can be read.
+          renderCameraDiagnostics();
+          stopScanner();
+        });
+    }
+
+    function getCameraErrorMessage(error) {
+      const raw =
+        (error && (error.message || error.name || String(error))) || '';
+
+      if (/NotAllowedError|Permission denied|Permissions policy/i.test(raw)) {
+        return (
+          'Camera access was blocked. If you\'re testing from the Apps ' +
+          'Script editor preview, open the deployed Web App URL directly ' +
+          'instead (Deploy \u2192 Manage deployments \u2192 Web app) \u2014 ' +
+          'the editor preview does not allow camera access. Otherwise, ' +
+          'check this site\'s camera permission in your browser (see ' +
+          'diagnostics below).'
+        );
+      }
+
+      if (/NotFoundError/i.test(raw)) {
+        return 'No camera was found on this device.';
+      }
+
+      if (/NotReadableError/i.test(raw)) {
+        return 'The camera is already in use by another app.';
+      }
+
+      return 'Unable to access camera. Check the diagnostics below.';
+    }
+
+    function handleScanSuccess(decodedText) {
+      if (scannerLocked) {
+        return;
+      }
+
+      const scannedValue = String(decodedText || '').trim();
+
+      if (!scannedValue || !scannerTarget) {
+        return;
+      }
+
+      scannerLocked = true;
+
+      const targetElement = document.getElementById(scannerTarget);
+
+      if (targetElement) {
+        targetElement.value = scannedValue;
+
+        targetElement.dispatchEvent(
+          new Event('input', { bubbles: true })
+        );
+
+        targetElement.dispatchEvent(
+          new Event('change', { bubbles: true })
+        );
+      }
+
+      const targetLabel = scannerTarget === 'sku'
+        ? 'SKU'
+        : 'Pallet Location';
+
+      stopScanner()
+        .then(function() {
+          closeScanner();
+          showMessage(
+            targetLabel + ' scanned: ' + scannedValue
+          );
+        })
+        .catch(function(error) {
+          console.error(error);
+          closeScanner();
+        });
+    }
+
+    function handleScanError(errorMessage) {
+      // Continuous scanner decode errors are intentionally ignored.
+    }
+
+    function stopScanner() {
+      if (!scannerInstance) {
+        scannerRunning = false;
+        scannerStarting = false;
+        return Promise.resolve();
+      }
+
+      const instance = scannerInstance;
+      const wasRunning = scannerRunning;
+
+      scannerInstance = null;
+      scannerRunning = false;
+      scannerStarting = false;
+
+      // Only call .stop() if the scanner actually reached a
+      // running/paused state. Calling it after a failed .start()
+      // (e.g. camera permission denied) throws "Cannot stop,
+      // scanner is not running or paused."
+      const stopPromise = wasRunning
+        ? instance.stop().catch(function(error) {
+            console.warn('Scanner stop warning:', error);
+          })
+        : Promise.resolve();
+
+      return stopPromise.then(function() {
+        try {
+          instance.clear();
+        } catch (error) {
+          console.warn('Scanner clear warning:', error);
+        }
+      });
+    }
+
+    function closeScanner() {
+      scannerLocked = true;
+      scannerTarget = null;
+
+      document.getElementById('scanner-modal')
+        .classList.remove('active');
+
+      stopScanner();
+    }
+
+    function showMessage(message) {
+      const element = document.getElementById('message');
+
+      element.textContent = message;
+      element.classList.add('active');
+
+      window.clearTimeout(showMessage.timeout);
+
+      showMessage.timeout = window.setTimeout(function() {
+        element.classList.remove('active');
+      }, 4500);
+    }
+
+    function normalizeTaskId(type) {
+      return type
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-');
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function escapeJs(value) {
+      return String(value ?? '')
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'");
+    }
+  </script>
+</body>
+</html>
