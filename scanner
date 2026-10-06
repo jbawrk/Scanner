@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FD/RR Camera Scanner</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; color: #fff; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+  #wrap { position: fixed; inset: 0; display: flex; flex-direction: column; }
+  .bar { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: calc(12px + env(safe-area-inset-top)) 14px 12px; background: rgba(0,0,0,.75); }
+  .bar b { font-size: 16px; }
+  button { padding: 10px 16px; border: 1px solid rgba(255,255,255,.5); border-radius: 8px; background: transparent; color: #fff; font-size: 15px; font-weight: bold; }
+  #stage { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; }
+  video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  #frame { position: absolute; left: 50%; top: 50%; width: min(78vw, 420px); height: min(48vw, 260px); min-height: 150px; transform: translate(-50%, -50%);
+           border: 3px solid #ee4d2d; border-radius: 14px; box-shadow: 0 0 0 100vmax rgba(0,0,0,.45); pointer-events: none; }
+  #frame.hit { border-color: #2ecc71; }
+  .foot { flex: 0 0 auto; padding: 12px 14px calc(12px + env(safe-area-inset-bottom)); background: rgba(0,0,0,.75); }
+  #msg { min-height: 22px; margin-bottom: 8px; text-align: center; font-size: 15px; overflow-wrap: anywhere; }
+  #msg.bad { color: #ff8a80; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  label { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+  input[type=checkbox] { width: 20px; height: 20px; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div class="bar"><b>Point at a barcode or QR code</b><button id="close" type="button">&#10005; Close</button></div>
+  <div id="stage"><video id="v" playsinline muted autoplay></video><div id="frame"></div></div>
+  <div class="foot">
+    <div id="msg">Starting camera...</div>
+    <div class="row">
+      <label><input type="checkbox" id="keep"> Keep scanning</label>
+      <button id="torch" type="button" style="display:none">&#128294; Torch</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* Live camera scanner for the FD/RR scanner app.
+   Host this ONE file on any HTTPS site (GitHub Pages, Netlify, Cloudflare Pages...), then put its address in
+   CAMERA_URL at the top of the scanner's script. It reads a code and sends it back to the scanner tab. */
+(function () {
+  const $ = id => document.getElementById(id);
+  const video = $('v');
+  let stream = null, timer = null, busy = false, detect = null, last = '', lastT = 0, torchOn = false, audio = null;
+
+  const msg = (t, bad) => { $('msg').textContent = t; $('msg').className = bad ? 'bad' : ''; };
+
+  function beep() {
+    try { if (navigator.vibrate) navigator.vibrate(70); } catch (e) {}
+    try {
+      if (!audio) return;
+      const o = audio.createOscillator(), g = audio.createGain();
+      o.type = 'sine'; o.frequency.value = 1500; g.gain.value = 0.15;
+      o.connect(g); g.connect(audio.destination); o.start(); o.stop(audio.currentTime + 0.09);
+    } catch (e) {}
+  }
+
+  function loadZXing() {
+    if (window.ZXing) return Promise.resolve();
+    const urls = ['https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js',
+                  'https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js'];
+    const go = i => new Promise((res, rej) => {
+      if (i >= urls.length) return rej(new Error('Scanner library could not be loaded'));
+      const s = document.createElement('script');
+      s.src = urls[i];
+      s.onload = () => window.ZXing ? res() : go(i + 1).then(res, rej);
+      s.onerror = () => go(i + 1).then(res, rej);
+      document.head.appendChild(s);
+    });
+    return go(0);
+  }
+
+  async function makeDetector() {
+    if ('BarcodeDetector' in window) {
+      try {
+        const want = ['qr_code', 'ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'code_93', 'itf', 'codabar', 'data_matrix'];
+        const have = await BarcodeDetector.getSupportedFormats();
+        const formats = want.filter(f => have.indexOf(f) >= 0);
+        if (formats.length) {
+          const det = new BarcodeDetector({ formats: formats });
+          return async () => { const r = await det.detect(video); return r && r.length ? String(r[0].rawValue || '') : ''; };
+        }
+      } catch (e) {}
+    }
+    await loadZXing();
+    const Z = window.ZXing, hints = new Map();
+    hints.set(Z.DecodeHintType.POSSIBLE_FORMATS, [Z.BarcodeFormat.QR_CODE, Z.BarcodeFormat.EAN_13, Z.BarcodeFormat.EAN_8,
+      Z.BarcodeFormat.UPC_A, Z.BarcodeFormat.UPC_E, Z.BarcodeFormat.CODE_128, Z.BarcodeFormat.CODE_39, Z.BarcodeFormat.CODE_93,
+      Z.BarcodeFormat.ITF, Z.BarcodeFormat.CODABAR, Z.BarcodeFormat.DATA_MATRIX]);
+    hints.set(Z.DecodeHintType.TRY_HARDER, true);
+    const reader = new Z.MultiFormatReader(); reader.setHints(hints);
+    const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d', { willReadFrequently: true });
+    return async () => {
+      const vw = video.videoWidth, vh = video.videoHeight;
+      if (!vw || !vh) return '';
+      const sc = Math.min(1, 900 / vw);
+      canvas.width = Math.round(vw * sc); canvas.height = Math.round(vh * sc);
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      try {
+        return String(reader.decode(new Z.BinaryBitmap(new Z.HybridBinarizer(new Z.HTMLCanvasElementLuminanceSource(canvas)))).getText() || '');
+      } catch (e) { return ''; }
+    };
+  }
+
+  function stop() {
+    clearInterval(timer); timer = null;
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  }
+
+  function finish() {
+    stop();
+    try { window.close(); } catch (e) {}
+    msg('Done. You can close this tab and go back to the scanner.');
+  }
+
+  function hit(text) {
+    const now = Date.now();
+    if (text === last && now - lastT < 2500) return;
+    last = text; lastT = now;
+    beep();
+    $('frame').classList.add('hit');
+    setTimeout(() => $('frame').classList.remove('hit'), 500);
+    msg('Scanned: ' + text);
+
+    let sent = false;
+    try {
+      if (window.opener && !window.opener.closed) { window.opener.postMessage({ type: 'fdrr-scan', code: text }, '*'); sent = true; }
+    } catch (e) {}
+    if (!sent) { msg('Scanned: ' + text + '  (scanner tab not found - was this opened from the app?)', true); return; }
+    if (!$('keep').checked) setTimeout(finish, 250);
+  }
+
+  async function start() {
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) audio = new AC();
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false
+      });
+      video.srcObject = stream;
+      await video.play();
+      try { const c = stream.getVideoTracks()[0].getCapabilities(); if (c && c.torch) $('torch').style.display = ''; } catch (e) {}
+      msg('Loading scanner...');
+      detect = await makeDetector();
+      msg('Point the camera at a barcode or QR code');
+      timer = setInterval(async () => {
+        if (busy || video.readyState < 2) return;
+        busy = true;
+        try { const t = (await detect()).trim(); if (t) hit(t); } catch (e) {} finally { busy = false; }
+      }, 140);
+    } catch (e) {
+      const n = e && e.name;
+      msg(n === 'NotAllowedError' ? 'Camera is blocked. Allow camera access for this page and reload.'
+        : n === 'NotFoundError' ? 'No camera found on this device.'
+        : 'Camera error: ' + (e && e.message ? e.message : e), true);
+    }
+  }
+
+  $('close').addEventListener('click', finish);
+  $('torch').addEventListener('click', async () => {
+    try { torchOn = !torchOn; await stream.getVideoTracks()[0].applyConstraints({ advanced: [{ torch: torchOn }] }); }
+    catch (e) { msg('Torch is not available on this camera', true); }
+  });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); else if (!stream) start(); });
+  start();
+})();
+</script>
+</body>
+</html>
